@@ -1,0 +1,71 @@
+clear all 
+close all
+mu0 = (4*pi)*1e-7 ;
+eps0 = 8.85e-12;
+
+num_regions = input('How many regions? : ');
+E_inc = input('Incident E-field magnitude : ');
+f = input('incident frequency f in Hz : ');
+alpha = 0;
+
+%for dialogue box
+%==================================================================================================
+
+prompt = {'\bf Permittivity (\epsilon) ', '\bf Permeability (\mu) ', '\bf Conductivity (\sigma)', '\bf Length of region'};
+definput = {'','','','0.0000'};
+dims = [1 50];
+opts.Interpreter = 'tex';
+opts.Resize = 'on'
+for i = 1: num_regions
+           dlgtitle = 'Values in region ' + string(i);
+           x(1:4, i) = inputdlg(prompt, dlgtitle, dims, definput, opts)     
+           val = str2double(x)   % val 1 = permittivity;          val2 = permeability;             val 3 = coductivity;             val 4 = length
+        
+           proc = sqrt(1+(val(3,i)/(2*pi*f*eps0* val(1,i)))^2)
+           alpha(i) = 2*pi*f*sqrt(mu0* val(2,i)*eps0* val(1,i)) * (sqrt(proc-1)/sqrt(2))
+           beta(i) = 2*pi*f*sqrt(mu0* val(2,i)*eps0* val(1,i)) * (sqrt(proc+1)/sqrt(2));    
+              
+           if val(3,i) == 0
+                      eta(i) = (120*pi)/sqrt(val(1,i));
+           else
+                      eta(i) = sqrt((mu0*val(2,i))/((eps0* val(1,i))-(j*val(3,i)/(2*pi*f))));
+           end
+end
+% END OF DIALOGUE BOX
+% =====================================================================================================
+
+gamma = alpha + j *beta;         %find alpha
+
+Rcoeff = zeros(num_regions, 2)
+Z_last = eta(1,end);
+Z_l = Z_last
+
+for j = (num_regions-1):-1:1               %as the Olast is already taken in Z-last
+           Z(j) = Z_l;
+           ref(j) = (Z(j) - eta(1,j))/(Z(j) + eta(1,j));
+           ref_negdist = ref(j)*exp(2*gamma(1,j)*((-2*pi/beta(1,j))*val(4,j)-0));
+           Rcoeff (j, 1:end) = [ref_negdist, ref(j)]
+           Z_negdist = eta(1,j)* ((1+ref_negdist)/(1-ref_negdist))
+           Z_l = Z_negdist;       
+end 
+
+%verified, correct reflection coeff
+
+%loop for calculating E
+E_in = E_inc*(Rcoeff(1, 2))
+E_inMAG = abs(E_in);
+E_inPH = atan2d(imag(E_in), real(E_in))
+msgbox(sprintf('The Em1 at region 1 is %.2f e %.2f', E_inMAG, E_inPH), 'Region 1')
+E_cross = E_inc*(1+Rcoeff(1, 2));
+for i = 2:num_regions
+        
+           Em(i) = E_cross(1,i-1)/((1+ Rcoeff(i,1))*exp(-gamma(1,i)*val(4,i)));
+           Em_MAG = abs(Em(i));
+           Em_PH = atan2d(imag(Em(i)), real(Em(i)));
+           E_cross(1,i) = Em(i) * (1 + Rcoeff(i,2));
+           E_crossMAG = abs(E_cross(1,i));
+           E_crossPH = atan2d(imag(E_cross(1,i)), real(E_cross(1,i)));
+           res = msgbox({[sprintf('The Em%d in region %d at d = 0 is %.2f e %.3f',i,i, Em_MAG, Em_PH)]...
+                                     [sprintf('The Em%d at distance (d) =  %.3f of region %d is %.2f e %.3f',i, val(4,i),i, E_crossMAG, E_crossPH)]}, sprintf('Region %d', i));
+end
+
